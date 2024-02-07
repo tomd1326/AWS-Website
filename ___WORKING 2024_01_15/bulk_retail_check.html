@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>File Upload for Bulk Retail Check</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload and Process a Bulk Retail Check file</h1>
+
+    <!-- File Upload Form -->
+    <form id="uploadForm" enctype="multipart/form-data">
+        <label for="fileInput">Choose File:</label>
+        <input type="file" id="fileInput" name="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        <button type="button" id="uploadButton" style="display: none;">Upload</button>
+    </form>
+
+    <!-- File Name Display -->
+    <div id="fileNameDisplay"></div>
+
+    <!-- File Size and Row Count Display (Initially Hidden) -->
+    <div id="fileInfo" style="display: none;">
+        <p id="fileSizeDisplay"></p>
+        <p id="rowCountDisplay"></p>
+    </div>
+
+    <!-- Progress Bar Container -->
+    <div id="progressBarContainer" style="display: none;">
+        <progress id="progressBar" max="100" value="0"></progress>
+    </div>
+
+    <!-- Process Button (Initially Hidden) -->
+    <button type="button" id="processButton" style="display: none;">Process File</button>
+
+    <!-- Output File Details (Initially Hidden) -->
+    <div id="outputDetails" style="display: none;"></div>
+
+    <!-- Download Button (Initially Hidden) -->
+    <a href="#" id="downloadLink" style="display: none;">
+        <button type="button">Download Output File</button>
+    </a>
+
+    <!-- Error Message Display -->
+    <div id="errorMessage" style="color: red;"></div>
+
+    <script>
+        // Enable the Upload button and show file size when a file is selected
+        document.getElementById('fileInput').addEventListener('change', function() {
+            var fileInput = this;
+            var fileNameDisplay = document.getElementById('fileNameDisplay');
+            var fileInfo = document.getElementById('fileInfo');
+            var fileSizeDisplay = document.getElementById('fileSizeDisplay');
+
+            if (fileInput.files.length > 0) {
+                var file = fileInput.files[0];
+                var fileName = file.name;
+                var fileSize = file.size;
+
+                fileNameDisplay.innerText = 'Selected file: ' + fileName;
+                fileSizeDisplay.innerText = 'File size: ' + (fileSize / 1024).toFixed(2) + ' KB';
+                fileInfo.style.display = 'block'; // Show file info
+
+                document.getElementById('uploadButton').style.display = 'block'; // Show the Upload button
+            }
+        });
+
+
+        // Event listener for the Upload button
+        document.getElementById('uploadButton').addEventListener('click', function() {
+            var fileInput = document.getElementById('fileInput');
+            var file = fileInput.files[0];
+            if (!file) {
+                alert("No file selected");
+                return;
+            }
+            var formData = new FormData();
+            formData.append('uploaded_file', file);  // Append the uploaded file
+
+            console.log("Sending file to server..."); // Debug log
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Response received:", data); // Debug log
+                document.getElementById('processButton').style.display = 'block'; // Show the Process button
+
+                // Display the number of rows
+                if (data.rowCount !== undefined) {
+                    var rowCountDisplay = document.getElementById('rowCountDisplay');
+                    rowCountDisplay.innerText = 'Number of rows: ' + data.rowCount;
+                }
+
+                // Store data for later use
+                window.uploadedData = data;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+
+        // Show progress bar when processing file
+        document.getElementById('processButton').addEventListener('click', function() {
+            var progressBar = document.getElementById('progressBar');
+            progressBar.style.display = 'block';
+            progressBar.value = 0;
+
+            var data = window.uploadedData; // Retrieve stored data
+
+            // Start the file processing
+            fetch('/process', {
+                method: 'POST'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json(); // Parse the JSON response
+            })
+            .then(data => {
+                console.log("Processed data:", data); // Debug log
+
+                if (!data || typeof data.outputFileName === 'undefined') {
+                    throw new Error('Invalid response data');
+                }
+
+                // File processing completed, show output details and download button
+                document.getElementById('outputDetails').style.display = 'block';
+
+                var downloadLink = document.getElementById('downloadLink');
+                downloadLink.href = '/download?output_file_name=' + encodeURIComponent(data.outputFileName);
+                downloadLink.style.display = 'block';
+
+                progressBar.style.display = 'none'; // Hide the progress bar
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('errorMessage').innerText = 'Error processing file: ' + error;
+            });
+        });
+    </script>
+</body>
+</html>

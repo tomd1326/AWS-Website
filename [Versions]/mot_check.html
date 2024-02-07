@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOT Check</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>MOT Check File Upload</h1>
+    <form id="uploadForm" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".csv">
+        <input type="button" value="Upload" onclick="uploadFile()">
+    </form>
+
+    <div id="vehicleCount" style="display:none;">
+        <p>Number of vehicles to process: <span id="count">0</span></p>
+        <button onclick="processFile()">Process</button>
+    </div>
+
+    <div id="progressContainer" style="display:none;">
+        <p>Progress: <span id="progressLabel">0%</span></p>
+        <p>Rows Processed: <span id="rowCount">0</span> / <span id="totalRows">0</span></p>
+        <p>ETA: <span id="eta">Calculating...</span></p>
+    </div>
+
+    <div id="processingStatus" style="display:none;">
+        <p>Processing... Please wait.</p>
+    </div>
+
+    <div id="successMessage" style="display:none;">
+        <p>Processing complete.</p>
+        <a id="downloadButton" href="/mot_check/download_output" style="display:none;">Download Output File</a>
+    </div>
+
+    <script>
+        function uploadFile() {
+            var formData = new FormData(document.getElementById('uploadForm'));
+            $.ajax({
+                url: '/mot_check/upload_mot',
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    $("#count").text(response.rowCount);
+                    $("#vehicleCount").show();
+                },
+                error: function() {
+                    alert('File upload failed.');
+                }
+            });
+        }
+    
+        function processFile() {
+            $("#vehicleCount").hide();
+            $("#processingStatus").show();
+            $.ajax({
+                url: '/mot_check/process_mot',
+                type: 'POST',
+                // Add necessary data or headers if needed
+                success: function(response) {
+                    $("#processingStatus").hide();
+                    $("#successMessage").show();  // Show success message
+    
+                    // Assuming 'response.output_filename' is the name of the file returned by the server
+                    var downloadUrl = `/mot_check/download_output?output_file_name=${response.output_filename}`;
+                    $("#downloadButton")
+                        .attr('href', downloadUrl)  // Set the correct download link
+                        .show();  // Show download button
+                },
+                error: function() {
+                    alert('Processing failed.');
+                }
+            });
+        }
+    
+        // Function to update progress
+        function updateProgress() {
+            $.ajax({
+                url: '/mot_check/progress',
+                type: 'GET',
+                success: function(response) {
+                    $("#progressLabel").text(response.progress.toFixed(2) + '%');
+                    $("#rowCount").text(response.processed_rows);
+                    $("#totalRows").text(response.total_rows);
+                    $("#eta").text(response.eta);
+                    if(response.progress >= 100) {
+                        clearInterval(progressInterval);  // Stop updating progress when complete
+                    }
+                },
+                error: function() {
+                    console.log('Failed to fetch progress');
+                }
+            });
+        }
+    
+        // Update progress every 5 seconds
+        var progressInterval = setInterval(updateProgress, 5000);
+    </script>
+</body>
+</html>

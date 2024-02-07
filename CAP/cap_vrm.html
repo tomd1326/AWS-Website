@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cap VRM File Processing</title>
+</head>
+<body>
+    <h2>Upload File for Cap VRM Processing</h2>
+    <form action="/cap_vrm/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".csv">
+        <input type="submit" value="Upload">
+    </form>
+
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    {% if output_file %}
+        <h2>Download Processed File</h2>
+        <a href="{{ url_for('cap_vrm_blueprint.download_file', filename=output_file) }}">Download {{ output_file }}</a>
+    {% endif %}
+</body>
+</html>
